@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"plugin_onenet/cache"
@@ -98,11 +99,16 @@ func (ctw *CtwingService) dataResolve(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(r.Body)
-	logrus.Debug(decoder)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	logrus.Debug("Raw Body:", string(body))
 	var msg OneNetMessage
 	logrus.Debug(decoder.Decode(&msg), fmt.Sprintf("%#v", msg.Msg))
 	var msgItem OneNetMessageItem
-	err := json.Unmarshal([]byte(msg.Msg), &msgItem)
+	err = json.Unmarshal([]byte(msg.Msg), &msgItem)
 	logrus.Debug(err, fmt.Sprintf("%#v", msgItem))
 	var (
 		productId    string
