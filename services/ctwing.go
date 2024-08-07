@@ -98,7 +98,7 @@ func (ctw *CtwingService) dataResolve(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(r.Body)
-
+	logrus.Debug(decoder)
 	var msg OneNetMessage
 	logrus.Debug(decoder.Decode(&msg), fmt.Sprintf("%#v", msg.Msg))
 	var msgItem OneNetMessageItem
