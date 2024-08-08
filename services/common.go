@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	httpclient "plugin_onenet/http_client"
+	httpclient "plugin_ctwing/http_client"
 
 	"github.com/ThingsPanel/tp-protocol-sdk-go/api"
 )

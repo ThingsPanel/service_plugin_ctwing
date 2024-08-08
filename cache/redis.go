@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
-	"plugin_onenet/model"
+	"plugin_ctwing/model"
 	"time"
 )
 

@@ -1,4 +1,4 @@
-module plugin_onenet
+module plugin_ctwing
 
 go 1.22
 

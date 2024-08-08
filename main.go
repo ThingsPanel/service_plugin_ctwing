@@ -2,11 +2,11 @@ package main
 
 import (
 	"log"
-	"plugin_onenet/cache"
-	httpclient "plugin_onenet/http_client"
-	httpservice "plugin_onenet/http_service"
-	"plugin_onenet/mqtt"
-	"plugin_onenet/services"
+	"plugin_ctwing/cache"
+	httpclient "plugin_ctwing/http_client"
+	httpservice "plugin_ctwing/http_service"
+	"plugin_ctwing/mqtt"
+	"plugin_ctwing/services"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -33,7 +33,7 @@ func main() {
 func conf() {
 	log.Println("加载配置文件...")
 	// 设置环境变量前缀
-	viper.SetEnvPrefix("plugin_onenet")
+	viper.SetEnvPrefix("plugin_ctwing")
 	// 使 Viper 能够读取环境变量
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"plugin_onenet/model"
+	"plugin_ctwing/model"
 	"strconv"
 	"time"
 

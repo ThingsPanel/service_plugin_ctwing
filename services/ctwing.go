@@ -9,10 +9,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"plugin_onenet/cache"
-	httpclient "plugin_onenet/http_client"
-	"plugin_onenet/model"
-	"plugin_onenet/mqtt"
+	"plugin_ctwing/cache"
+	httpclient "plugin_ctwing/http_client"
+	"plugin_ctwing/model"
+	"plugin_ctwing/mqtt"
 	"strings"
 )
 

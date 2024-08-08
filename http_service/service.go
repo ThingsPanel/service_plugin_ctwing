@@ -5,17 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	tpprotocolsdkgo "github.com/ThingsPanel/tp-protocol-sdk-go"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"plugin_onenet/cache"
-	httpclient "plugin_onenet/http_client"
-	"strconv"
-
-	tpprotocolsdkgo "github.com/ThingsPanel/tp-protocol-sdk-go"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	aepapi "plugin_ctwing/apis/Aep_device_management"
+	httpclient "plugin_ctwing/http_client"
 )
 
 var HttpClient *tpprotocolsdkgo.Client
@@ -61,7 +59,7 @@ func OnGetForm(w http.ResponseWriter, r *http.Request) {
 		RspSuccess(w, nil)
 	case "SVCR":
 		//服务凭证类型表单
-		RspSuccess(w, readFormConfigByPath("./form_onenet.json"))
+		RspSuccess(w, readFormConfigByPath("./form_ctwing.json"))
 	default:
 		RspError(w, errors.New("not support form type: "+form_type))
 	}
@@ -98,9 +96,11 @@ func readFormConfigByPath(path string) interface{} {
 	}
 }
 
-type OneNetVoucher struct {
+type CwtingVoucher struct {
 	ProductId string `json:"productId"`
-	AccessKey string `json:"accessKey"`
+	AppKey    string `json:"appKey"`
+	AppSecret string `json:"AppSecret"`
+	MasterKey string `json:"MasterKey"`
 }
 
 func OnGetDeviceList(w http.ResponseWriter, r *http.Request) {
@@ -108,27 +108,29 @@ func OnGetDeviceList(w http.ResponseWriter, r *http.Request) {
 	//r.ParseForm() //解析参数，默认是不会解析的
 	logrus.Info("【收到api请求】path", r.URL.Path)
 	logrus.Info("query", r.FormValue("voucher"))
-	var voucher OneNetVoucher
+	var voucher CwtingVoucher
 	err := json.Unmarshal([]byte(r.FormValue("voucher")), &voucher)
 	if err != nil {
 		return
 	}
-	page, _ := strconv.ParseInt(r.FormValue("page"), 10, 64)
-	pageSize, _ := strconv.ParseInt(r.FormValue("page_size"), 10, 64)
+	page := r.FormValue("page")
+	pageSize := r.FormValue("page_size")
 	data := make(map[string]interface{})
-	if page == 0 {
-		page = 1
+	if page == "" || page == "0" {
+		page = "1"
 	}
-	if pageSize == 0 {
-		pageSize = 10
+	if pageSize == "" || pageSize == "0" {
+		pageSize = "10"
 	}
-	total, list, err := cache.GetDeviceList(r.Context(), voucher.ProductId, page, pageSize)
+	resp, err := aepapi.QueryDeviceList(voucher.AppKey, voucher.AppSecret, voucher.MasterKey, voucher.ProductId, "", page, pageSize)
+	//total, list, err := cache.GetDeviceList(r.Context(), voucher.ProductId, page, pageSize)
 	if err != nil {
 		RspError(w, err)
 		return
 	}
-	data["list"] = list
-	data["total"] = total
+	logrus.Debug("返回结果:", resp)
+	//data["list"] = list
+	//data["total"] = total
 
 	// 获取设备列表
 	RspSuccess(w, data)
