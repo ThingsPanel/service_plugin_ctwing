@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	tpprotocolsdkgo "github.com/ThingsPanel/tp-protocol-sdk-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -14,6 +15,7 @@ import (
 	"os"
 	aepapi "plugin_ctwing/apis/Aep_device_management"
 	httpclient "plugin_ctwing/http_client"
+	"plugin_ctwing/model"
 )
 
 var HttpClient *tpprotocolsdkgo.Client
@@ -129,9 +131,27 @@ func OnGetDeviceList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		RspError(w, err)
+		return
+	}
 	logrus.Debug("返回结果:", string(body))
-	//data["list"] = list
-	//data["total"] = total
+	var deviceListResp model.CtwingDeviceListResp
+	err = json.Unmarshal(body, &deviceListResp)
+	if err != nil {
+		RspError(w, err)
+		return
+	}
+	var list []model.DeviceItem
+	for _, v := range deviceListResp.Result.List {
+		list = append(list, model.DeviceItem{
+			DeviceNumber: fmt.Sprintf(viper.GetString("ctwing.device_number_key"), voucher.ProductId, v.DeviceId),
+			DeviceName:   v.DeviceName,
+			Description:  "",
+		})
+	}
+	data["list"] = list
+	data["total"] = deviceListResp.Result.Total
 
 	// 获取设备列表
 	RspSuccess(w, data)

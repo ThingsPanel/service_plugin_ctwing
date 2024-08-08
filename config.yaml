@@ -29,6 +29,5 @@ redis:
   db: 10 # 默认0
   password: redis
 
-onenet:
+ctwing:
   device_number_key: "%s-%s"
-  product_cache_key: "onenet:productCacheKey:productId:%s"
