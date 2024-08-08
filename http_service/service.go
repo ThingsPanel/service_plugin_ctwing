@@ -128,7 +128,8 @@ func OnGetDeviceList(w http.ResponseWriter, r *http.Request) {
 		RspError(w, err)
 		return
 	}
-	logrus.Debug("返回结果:", resp)
+	body, err := io.ReadAll(resp.Body)
+	logrus.Debug("返回结果:", string(body))
 	//data["list"] = list
 	//data["total"] = total
 
