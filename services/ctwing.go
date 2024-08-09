@@ -27,35 +27,45 @@ func NewCtwing() *CtwingService {
 }
 
 func (ctw *CtwingService) Init() *http.ServeMux {
-	ctw.mux.HandleFunc("/accept", ctw.accept)
+	ctw.mux.HandleFunc("/accept/telemetry", ctw.telemetry)
+	ctw.mux.HandleFunc("/accept/command-response", ctw.commandResponse)
+	ctw.mux.HandleFunc("/accept/event", ctw.event)
+	ctw.mux.HandleFunc("/accept/online", ctw.online)
 	return ctw.mux
 }
 
-func (ctw *CtwingService) accept(w http.ResponseWriter, r *http.Request) {
-
-	if r.Method == http.MethodGet {
-		//验证
-		ctw.Auth(w, r)
+func (ctw *CtwingService) telemetry(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	if r.Method == http.MethodPost {
-		ctw.dataResolve(w, r)
-	}
-	_, _ = w.Write([]byte(""))
+	logrus.Debug("Raw Body:", string(body))
 }
 
-func (ctw *CtwingService) Auth(w http.ResponseWriter, r *http.Request) {
-	logrus.Debug(r.URL.RawQuery)
-	queryMap, err := Parse(r.URL.RawQuery)
+func (ctw *CtwingService) commandResponse(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		logrus.Debug(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	logrus.Debug(r.URL.RawQuery, queryMap)
-	if msg, ok := queryMap["msg"]; ok {
-		_, _ = w.Write([]byte(msg.(string)))
+	logrus.Debug("Raw Body:", string(body))
+}
+func (ctw *CtwingService) event(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	logrus.Debug("Raw Body:", string(body))
+}
+func (ctw *CtwingService) online(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	logrus.Debug("Raw Body:", string(body))
 }
 
 type OneNetMessage struct {
