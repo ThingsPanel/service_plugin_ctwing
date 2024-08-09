@@ -35,12 +35,17 @@ func (ctw *CtwingService) Init() *http.ServeMux {
 }
 
 func (ctw *CtwingService) telemetry(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	decoder := json.NewDecoder(r.Body)
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(r.Body)
+	var msg CtwingTelemetry
+	err := decoder.Decode(&msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	logrus.Debug("Raw Body:", string(body))
+	logrus.Debug("telemetry:", msg)
 }
 
 func (ctw *CtwingService) commandResponse(w http.ResponseWriter, r *http.Request) {
@@ -68,39 +73,27 @@ func (ctw *CtwingService) online(w http.ResponseWriter, r *http.Request) {
 	logrus.Debug("Raw Body:", string(body))
 }
 
-type OneNetMessage struct {
-	Msg       string `json:"msg"`
-	Nonce     string `json:"nonce"`
-	Signature string `json:"signature"`
-	Time      int64  `json:"time"`
-	Id        string `json:"id"`
+type CtwingMessage struct {
+	MessageType string `json:"messageType"`
+	DeviceId    string `json:"deviceId"`
+	ProductId   string `json:"productId"`
 }
 
-type OneNetMessageItem struct {
-	Type        *int        `json:"type,omitempty"`
-	DevName     *string     `json:"dev_name,omitempty"`
-	PID         *string     `json:"pid,omitempty"`
-	Status      *int        `json:"status,omitempty"`
-	At          *int64      `json:"at,omitempty"`
-	DSID        *string     `json:"ds_id,omitempty"`
-	Value       *int        `json:"value,omitempty"`
-	ProjectID   *string     `json:"projectId,omitempty"`
-	ProductID   *string     `json:"productId,omitempty"`
-	DeviceName  *string     `json:"deviceName,omitempty"`
-	MessageType *string     `json:"messageType,omitempty"`
-	NotifyType  *string     `json:"notifyType,omitempty"`
-	IMEI        *string     `json:"imei,omitempty"`
-	Data        *NotifyData `json:"data,omitempty"`
+type CtwingOnline struct {
+	CtwingMessage
+	EventType int `json:"eventType"` //1上线 0下线
 }
 
-type NotifyData struct {
-	ID     string                 `json:"id"`
-	Params map[string]interface{} `json:"params"`
+type CtwingTelemetry struct {
+	CtwingMessage
+	Payload map[string]interface{} `json:"payload"`
 }
 
-type AttributeItem struct {
-	Value interface{} `json:"value"`
-	Time  int64       `json:"time"`
+type CtwingEvent struct {
+	CtwingMessage
+	EventContent map[string]interface{} `json:"eventContent"`
+	EventType    int                    `json:"eventType"`
+	ServiceId    string                 `json:"serviceId"`
 }
 
 func (ctw *CtwingService) dataResolve(w http.ResponseWriter, r *http.Request) {
