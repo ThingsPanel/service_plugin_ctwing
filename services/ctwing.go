@@ -8,12 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"plugin_ctwing/cache"
 	httpclient "plugin_ctwing/http_client"
 	"plugin_ctwing/model"
 	"plugin_ctwing/mqtt"
-	"strings"
 )
 
 type CtwingService struct {
@@ -46,6 +43,18 @@ func (ctw *CtwingService) telemetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logrus.Debug("telemetry:", msg)
+	deviceNumber := fmt.Sprintf(viper.GetString("onenet.device_number_key"), msg.ProductId, msg.DeviceId)
+	// 读取设备信息
+	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
+	if err != nil {
+		// 获取设备信息失败，请检查连接包是否正确
+		logrus.Error(err)
+		return
+	}
+	err = mqtt.PublishTelemetry(deviceInfo.Data.ID, msg.Payload)
+	if err != nil {
+		logrus.Error(err)
+	}
 }
 
 func (ctw *CtwingService) commandResponse(w http.ResponseWriter, r *http.Request) {
@@ -57,20 +66,59 @@ func (ctw *CtwingService) commandResponse(w http.ResponseWriter, r *http.Request
 	logrus.Debug("Raw Body:", string(body))
 }
 func (ctw *CtwingService) event(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	decoder := json.NewDecoder(r.Body)
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(r.Body)
+	var msg CtwingEvent
+	err := decoder.Decode(&msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	logrus.Debug("Raw Body:", string(body))
+	logrus.Debug("telemetry:", msg)
+	deviceNumber := fmt.Sprintf(viper.GetString("onenet.device_number_key"), msg.ProductId, msg.DeviceId)
+	// 读取设备信息
+	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
+	if err != nil {
+		// 获取设备信息失败，请检查连接包是否正确
+		logrus.Error(err)
+		return
+	}
+	data := model.EventInfo{
+		Method: msg.ServiceId,
+		Params: msg.EventContent,
+	}
+	err = mqtt.PublishEvent(deviceInfo.Data.ID, data)
+	if err != nil {
+		logrus.Error(err)
+	}
 }
 func (ctw *CtwingService) online(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	decoder := json.NewDecoder(r.Body)
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(r.Body)
+	var msg CtwingOnline
+	err := decoder.Decode(&msg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	logrus.Debug("Raw Body:", string(body))
+	logrus.Debug("telemetry:", msg)
+	deviceNumber := fmt.Sprintf(viper.GetString("onenet.device_number_key"), msg.ProductId, msg.DeviceId)
+	// 读取设备信息
+	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
+	if err != nil {
+		// 获取设备信息失败，请检查连接包是否正确
+		logrus.Error(err)
+		return
+	}
+
+	err = mqtt.DeviceStatusUpdate(deviceInfo.Data.ID, msg.EventType)
+	if err != nil {
+		logrus.Error(err)
+	}
 }
 
 type CtwingMessage struct {
@@ -94,280 +142,4 @@ type CtwingEvent struct {
 	EventContent map[string]interface{} `json:"eventContent"`
 	EventType    int                    `json:"eventType"`
 	ServiceId    string                 `json:"serviceId"`
-}
-
-func (ctw *CtwingService) dataResolve(w http.ResponseWriter, r *http.Request) {
-	//logrus.Debug(r.MultipartForm.Value)
-	decoder := json.NewDecoder(r.Body)
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(r.Body)
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	logrus.Debug("Raw Body:", string(body))
-	var msg OneNetMessage
-	logrus.Debug(decoder.Decode(&msg), fmt.Sprintf("%#v", msg.Msg))
-	var msgItem OneNetMessageItem
-	err = json.Unmarshal([]byte(msg.Msg), &msgItem)
-	logrus.Debug(err, fmt.Sprintf("%#v", msgItem))
-	var (
-		productId    string
-		deviceNumber string
-		deviceName   string
-	)
-	switch {
-	case ctw.getMsgTypeDeviceOnline(msgItem): //设备上线 下线
-		productId = *msgItem.PID
-		deviceNumber = fmt.Sprintf(viper.GetString("onenet.device_number_key"), *msgItem.PID, *msgItem.DevName)
-		deviceName = *msgItem.DevName
-	case ctw.getMsgTypeDeviceAttribute(msgItem): //属性上报
-		productId = *msgItem.ProductID
-		deviceName = *msgItem.DeviceName
-		deviceNumber = fmt.Sprintf(viper.GetString("onenet.device_number_key"), *msgItem.ProductID, *msgItem.DeviceName)
-	case ctw.getMsgTypeDeviceEvent(msgItem): //事件上报
-		productId = *msgItem.ProductID
-		deviceName = *msgItem.DeviceName
-		deviceNumber = fmt.Sprintf(viper.GetString("onenet.device_number_key"), *msgItem.ProductID, *msgItem.DeviceName)
-	default:
-		logrus.Debug("暂时不支持的数据类型")
-		return
-	}
-	logrus.Debug(productId, deviceNumber)
-	// 读取设备信息
-	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
-	if err != nil {
-		// 获取设备信息失败，请检查连接包是否正确
-		logrus.Error(err)
-		return
-	}
-	if deviceInfo.Code != 200 {
-		//未查询到设备 增加未查询到列表
-		err = cache.SetDeviceInfo(r.Context(), productId, deviceName)
-		if err != nil {
-			logrus.Error(err)
-
-		}
-		return
-	}
-	logrus.Debug(deviceInfo, productId)
-	switch {
-	case ctw.getMsgTypeDeviceOnline(msgItem): //设备上线 下线
-		err = mqtt.DeviceStatusUpdate(deviceInfo.Data.ID, *msgItem.Status)
-		if err != nil {
-			logrus.Error(err)
-		}
-	case ctw.getMsgTypeDeviceAttribute(msgItem): //属性上报
-		data := make(map[string]interface{})
-		if msgItem.Data == nil {
-			return
-		}
-		for k, v := range msgItem.Data.Params {
-			logrus.Debug("k:", k)
-			logrus.Debug("v:", v)
-			if valStr, ok := v.(map[string]interface{}); ok {
-				data[k] = valStr["value"]
-			}
-		}
-		logrus.Debug("data:", data)
-		err = mqtt.PublishTelemetry(deviceInfo.Data.ID, data)
-		if err != nil {
-			logrus.Error(err)
-		}
-	case ctw.getMsgTypeDeviceEvent(msgItem): //事件上报
-		if msgItem.Data == nil {
-			return
-		}
-		logrus.Debug("event", fmt.Sprintf("%#v", msgItem.Data))
-		for k, v := range msgItem.Data.Params {
-			params := make(map[string]interface{})
-			if valStr, ok := v.(map[string]interface{}); ok {
-				params = valStr["value"].(map[string]interface{})
-			}
-			data := model.EventInfo{
-				Method: k,
-				Params: params,
-			}
-			err = mqtt.PublishEvent(deviceInfo.Data.ID, data)
-			if err != nil {
-				logrus.Error(err)
-			}
-		}
-
-	default:
-		logrus.Debug("暂时不支持的数据类型")
-		return
-	}
-
-}
-
-// getMsgTypeDeviceOnline
-// @description 设备上线 下线
-func (ctw *CtwingService) getMsgTypeDeviceOnline(msgItem OneNetMessageItem) bool {
-	return msgItem.Type != nil && *msgItem.Type == 2
-}
-
-// getMsgTypeDeviceOnline
-// @description 设备属性上报
-func (ctw *CtwingService) getMsgTypeDeviceAttribute(msgItem OneNetMessageItem) bool {
-	return msgItem.MessageType != nil && *msgItem.MessageType == "notify" && msgItem.NotifyType != nil && *msgItem.NotifyType == "property"
-}
-
-// getMsgTypeDeviceEvent
-// @description 设备属性上报
-func (ctw *CtwingService) getMsgTypeDeviceEvent(msgItem OneNetMessageItem) bool {
-	return msgItem.MessageType != nil && *msgItem.MessageType == "notify" && msgItem.NotifyType != nil && *msgItem.NotifyType == "event"
-}
-
-func (ctw *CtwingService) ResponseSuc(r http.ResponseWriter) {
-
-}
-
-func Parse(s string) (result map[string]interface{}, err error) {
-	if s == "" {
-		return nil, nil
-	}
-	result = make(map[string]interface{})
-	parts := strings.Split(s, "&")
-	for _, part := range parts {
-		pos := strings.Index(part, "=")
-		if pos <= 0 {
-			continue
-		}
-		key, err := url.QueryUnescape(part[:pos])
-		if err != nil {
-			return nil, err
-		}
-
-		for len(key) > 0 && key[0] == ' ' {
-			key = key[1:]
-		}
-
-		if key == "" || key[0] == '[' {
-			continue
-		}
-		value, err := url.QueryUnescape(part[pos+1:])
-		if err != nil {
-			return nil, err
-		}
-		// split into multiple keys
-		var keys []string
-		left := 0
-		for i, k := range key {
-			if k == '[' && left == 0 {
-				left = i
-			} else if k == ']' {
-				if left > 0 {
-					if len(keys) == 0 {
-						keys = append(keys, key[:left])
-					}
-					keys = append(keys, key[left+1:i])
-					left = 0
-					if i+1 < len(key) && key[i+1] != '[' {
-						break
-					}
-				}
-			}
-		}
-		if len(keys) == 0 {
-			keys = append(keys, key)
-		}
-		// first key
-		first := ""
-		for i, chr := range keys[0] {
-			if chr == ' ' || chr == '.' || chr == '[' {
-				first += "_"
-			} else {
-				first += string(chr)
-			}
-			if chr == '[' {
-				first += keys[0][i+1:]
-				break
-			}
-		}
-		keys[0] = first
-		// build nested map
-		if err = build(result, keys, value); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// build nested map.
-func build(result map[string]interface{}, keys []string, value interface{}) error {
-	var (
-		length = len(keys)
-		key    = strings.Trim(keys[0], "'\"")
-	)
-	if length == 1 {
-		result[key] = value
-		return nil
-	}
-
-	// The end is slice. like f[], f[a][]
-	if keys[1] == "" && length == 2 {
-		// TODO nested slice
-		if key == "" {
-			return nil
-		}
-		val, ok := result[key]
-		if !ok {
-			result[key] = []interface{}{value}
-			return nil
-		}
-		children, ok := val.([]interface{})
-		if !ok {
-			return fmt.Errorf("expected type '[]interface{}' for key '%s', but got '%T'", key, val)
-		}
-		result[key] = append(children, value)
-		return nil
-	}
-	// The end is slice + map. like v[][a]
-	if keys[1] == "" && length > 2 && keys[2] != "" {
-		val, ok := result[key]
-		if !ok {
-			result[key] = []interface{}{}
-			val = result[key]
-		}
-		children, ok := val.([]interface{})
-		if !ok {
-			return fmt.Errorf(
-				"expected type '[]interface{}' for key '%s', but got '%T'",
-				key, val,
-			)
-		}
-		if l := len(children); l > 0 {
-			if child, ok := children[l-1].(map[string]interface{}); ok {
-				if _, ok := child[keys[2]]; !ok {
-					_ = build(child, keys[2:], value)
-					return nil
-				}
-			}
-		}
-		child := map[string]interface{}{}
-		_ = build(child, keys[2:], value)
-		result[key] = append(children, child)
-		return nil
-	}
-
-	// map, like v[a], v[a][b]
-	val, ok := result[key]
-	if !ok {
-		result[key] = map[string]interface{}{}
-		val = result[key]
-	}
-	children, ok := val.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf(
-			"expected type 'map[string]interface{}' for key '%s', but got '%T'",
-			key, val,
-		)
-	}
-	if err := build(children, keys[1:], value); err != nil {
-		return err
-	}
-	return nil
 }
