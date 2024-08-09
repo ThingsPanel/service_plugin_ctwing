@@ -43,7 +43,7 @@ func (ctw *CtwingService) telemetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logrus.Debug("telemetry:", msg)
-	deviceNumber := fmt.Sprintf(viper.GetString("onenet.device_number_key"), msg.ProductId, msg.DeviceId)
+	deviceNumber := fmt.Sprintf(viper.GetString("ctwing.device_number_key"), msg.ProductId, msg.DeviceId)
 	// 读取设备信息
 	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
 	if err != nil {
@@ -77,7 +77,7 @@ func (ctw *CtwingService) event(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logrus.Debug("telemetry:", msg)
-	deviceNumber := fmt.Sprintf(viper.GetString("onenet.device_number_key"), msg.ProductId, msg.DeviceId)
+	deviceNumber := fmt.Sprintf(viper.GetString("ctwing.device_number_key"), msg.ProductId, msg.DeviceId)
 	// 读取设备信息
 	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
 	if err != nil {
@@ -106,7 +106,7 @@ func (ctw *CtwingService) online(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logrus.Debug("telemetry:", msg)
-	deviceNumber := fmt.Sprintf(viper.GetString("onenet.device_number_key"), msg.ProductId, msg.DeviceId)
+	deviceNumber := fmt.Sprintf(viper.GetString("ctwing.device_number_key"), msg.ProductId, msg.DeviceId)
 	// 读取设备信息
 	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
 	if err != nil {
