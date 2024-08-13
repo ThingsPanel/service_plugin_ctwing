@@ -5,8 +5,8 @@
 - 登录到超管后台
 - 进入插件管理添加新服务
   - ![插件管理](./image/image.png)
-  - 服务名称：移动OneNet（可自定义）
-  - 服务标识符：ONENET
+  - 服务名称：电信CTWing（可自定义）
+  - 服务标识符：CTWING
   - 类别：接入服务
   - ![新增插件](./image/image-1.png)
 - 点击服务配置按钮配置服务
@@ -16,4 +16,4 @@
 
 ## 对接步骤
 
- 查看文档：[电信CTWing对接](http://thingspanel.io/zh-Hans/docs/device-connect/service_access/ctwing)
+ 查看文档：[电信CTWing对接](http://thingspanel.io/zh-Hans/docs/device-connect/service_connect/ctwing)
