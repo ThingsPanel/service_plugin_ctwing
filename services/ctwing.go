@@ -3,14 +3,15 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
 	"net/http"
 	httpclient "plugin_ctwing/http_client"
 	"plugin_ctwing/model"
 	"plugin_ctwing/mqtt"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type CtwingService struct {
@@ -44,6 +45,7 @@ func (ctw *CtwingService) telemetry(w http.ResponseWriter, r *http.Request) {
 	}
 	logrus.Debug("telemetry:", msg)
 	deviceNumber := fmt.Sprintf(viper.GetString("ctwing.device_number_key"), msg.ProductId, msg.DeviceId)
+	logrus.Debug("deviceNumber:", deviceNumber)
 	// 读取设备信息
 	deviceInfo, err := httpclient.GetDeviceConfig(deviceNumber)
 	if err != nil {
@@ -51,6 +53,7 @@ func (ctw *CtwingService) telemetry(w http.ResponseWriter, r *http.Request) {
 		logrus.Error(err)
 		return
 	}
+	logrus.Debug("deviceInfo:", deviceInfo)
 	err = mqtt.PublishTelemetry(deviceInfo.Data.ID, msg.Payload)
 	if err != nil {
 		logrus.Error(err)
